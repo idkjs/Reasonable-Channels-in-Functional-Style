@@ -1,0 +1,1 @@
+# [Reasonable Channels in Functional Style](https://medium.com/@cleverti/reasonable-channels-in-functional-style-1ae7d71f41db)
