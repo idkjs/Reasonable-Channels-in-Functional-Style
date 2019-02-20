@@ -1,18 +1,29 @@
-// Internal representation of Channel type, polymorphic on type variable 'a.
-type t('a)
+// Internal representation of Channel type.
+//  Type parameters:
+//  'a: type of value transmitted.
+//  'r: receive permission.
+//  's: send permission.
+type t('a, 'r, 's)
 
-// Create a new channel that carries values of type 'a.
-let create: unit => t('a)
+type can_receive
+type cannot_receive
+type can_send
+type cannot_send
 
-// Send a value of type 'a on a channel of type t('a)
-let send: t('a) => 'a => t('a)
+let create: unit => t('a, can_receive, can_send)
+// Or: => t('a, 'r, 's) */
 
+let send: t('a, 'r, can_send) => 'a => t('a, cannot_receive, can_send)
+// Or: => t('a, 'r, can_send) */
 
-// Receive a value of type 'a, handled by a function of type 'a => unit.
-let recv: t('a) => ('a => unit) => t('a)
+let recv: t('a, can_receive, 's) => ('a => unit) => t('a, can_receive, cannot_send)
+// Or: => t('a, can_receive, 's) */
 
-// As above, but continue to listen for messages.
-let listen: t('a) => ('a => unit) => unit
+let listen: t('a, can_receive, 's) => ('a => unit) => unit
+// Or: => t('a, can_receive, 's) */
 
-// Receive if there is a value, synchronously.
-let recv_sync: t('a) => option('a)
+let recv_sync: t('a, can_receive, 's) => option('a)
+
+let to_read_only: t('a, can_receive, 's) => t('a, can_receive, cannot_send)
+
+let to_write_only: t('a, 'r, can_send) => t('a, cannot_receive, can_send)
