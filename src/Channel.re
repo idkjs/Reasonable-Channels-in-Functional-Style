@@ -20,8 +20,7 @@ let create = () => {
     messages: Queue.create()
 }
 
-let rec
-send = (channel, msg) => {
+let rec send = (channel, msg) => {
     let {inputs, messages} = channel
     if (Queue.length(inputs) > 0) {
         let (is_replicated, receiver) = Queue.take(inputs)
@@ -31,9 +30,7 @@ send = (channel, msg) => {
     }
     channel
 }
-and
-
-recv' = (channel, receiver, is_replicated) => {
+and recv' = (channel, receiver, is_replicated) => {
     let {inputs, messages} = channel
     if (Queue.length(messages) > 0) {
         let msg = Queue.take(messages)
@@ -44,15 +41,12 @@ recv' = (channel, receiver, is_replicated) => {
     }
     channel
 }
-and
-
-communicate = (channel, message, receiver, is_replicated) => {
+and communicate = (channel, message, receiver, is_replicated) => {
     spawn( () => run_safe(receiver, message) )
     if (is_replicated)
         spawn( () => recv'(channel, receiver, is_replicated) |. _ => () )
 }
-and
-run_safe = receiver => message => {
+and run_safe = receiver => message => {
     try (receiver(message)) {
         | Js.Exn.Error(e) => Js.log({j|JS Error: $e|j})
         | e => Js.log({j|Error: $e|j})
