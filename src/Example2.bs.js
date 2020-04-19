@@ -25,11 +25,11 @@ var chan = Channel$ChannelMedium.create(undefined);
 Channel$ChannelMedium.listen(filter(chan, (function (i) {
             return i > 0;
           })), (function (i) {
-        console.log("i>0", i);
+        console.log(i);
         
       }));
 
-Channel$ChannelMedium.send(Channel$ChannelMedium.send(Channel$ChannelMedium.send(Channel$ChannelMedium.send(chan, 1), -1), 13), 4);
+Channel$ChannelMedium.send(Channel$ChannelMedium.send(chan, 1), -1);
 
 Channel$ChannelMedium.send(chan, 2);
 
