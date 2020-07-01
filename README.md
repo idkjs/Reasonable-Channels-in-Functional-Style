@@ -352,7 +352,8 @@ Now try the same with Example1.re and the compiler will immediately inform you t
 
 ```re
     9 │ chan_ro |. send(5)  /* Rejected by the compiler. */
-
+```
+```sh
     This has type:
     Channels.Channel.t('a, Channels.Channel.can_receive,
                            Channels.Channel.cannot_send)
