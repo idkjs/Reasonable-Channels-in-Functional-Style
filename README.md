@@ -72,7 +72,7 @@ Here is our first attempt, Channel.rei, which should be placed in the src/ folde
 Some comments are in order. First, the type t('a) is *abstract*. We do not know how it will be implemented, and we have no way to create or manipulate it outside of the interface. This abstraction boundary is the primary method of encapsulation afforded by modules in OCaml/ReasonML. The part 'a is a type variable, similar to the ones found in other languages with parametric polymorphism, such as Java. After we create a channel, this type variable can be instantiated to any type.
 
 Let us give an example, assuming that we have some implementation of the above interface in a file named Channel.re. We will implement this module shortly, but we don't care about the details right now, because we want to program *against an interface*.
-
+```re
     /* File Example.re; this is a comment. */
 
     open Channel
@@ -95,6 +95,7 @@ Let us give an example, assuming that we have some implementation of the above i
        because of the send above, x will be constrained to have the type
        int, since chan has type t(int). The callback x => Js.log(x + 5)
        has type int => unit, which matches 'a => unit in the interface. */
+```
 
 Observe that values returned by Channel.create are *polymorphic*: we can create one and use it to communicate any type of message as long as we do so consistently. So, if we add send(chan, "Hello") above, type-checking fails because the type string is not compatible with t(int). Also, we did not write any types in Example.re: the compiler can *infer* them in a way that guarantees that they are as general as possible. By extension, there is no requirement to have an interface for a module, unless if we wish to control what is exposed.
 
@@ -110,18 +111,20 @@ We now return to the last two functions declared in the interface. The first, li
 
 Here’s how recv_sync would be normally used:
 
+```re
     let msg = recv_sync(chan);
     switch(msg) {
         Some(m) => ... /* Do something with m. */
       | None => ... /* Handle the no message case. */
     }
+```
 
 We are now ready to improve the Channel interface with capabilities.
 
 ## Permissioned channels
 
 Here is the new interface Channel.rei:
-
+```re
     /* Channel.rei */
 
     type t('a, 'r, 's)
@@ -155,6 +158,7 @@ Here is the new interface Channel.rei:
 
     let to_write_only: t('a, 'r, can_send) => t('a, cannot_receive, can_send)
     /* Remove the receive capability. */
+```
 
 Let’s look at the key points one by one:
 
@@ -168,6 +172,7 @@ Let’s look at the key points one by one:
 
 Time for an example:
 
+```re
     /* Example1.re */
 
     open Channel
@@ -177,21 +182,24 @@ Time for an example:
     let chan_ro = to_read_only(chan)  /* chan_ro: t('a, can_receive, cannot_send) */
 
     chan_ro |. send(5)  /* Rejected by the compiler. */
+```
 
 At the end of the article, we are going to see exactly how the compiler will respond to the above code.
 
 ## Implementing the interface in module Channel.re
 
 We begin by using the [FFI](https://bucklescript.github.io/bucklescript/Manual.html#_binding_to_simple_js_functions_values) to import the process.nextTick function as spawn. (If we wanted a more portable solution, we could use Promises which also work on modern browsers.)
-
+```re
     /* Channel.re part 1 of 7 */
 
     /* Node.js Event Loop Externals */
     [@bs.scope "process"] [@bs.val]
     external spawn : (unit => unit) => unit = "nextTick";
+```
 
 In the next fragment, we define the types. Note that the send-receive capabilities remain *abstract*: we must provide them because they appear in Channel.rei, but we are not required to actually define them concretely. Next, we define a polymorphic record type for channels. This provides access to two queues, one for the pending input callbacks and one for the pending messages. More accurately, the input queue will contain tuples of (boolean, callback): if the boolean is true, then the input is a server (it repeats); if it is false, the input can only be performed once (or zero times). Finally, the type t which we are again obligated to define is identified with channel. Since the variables 'r and 's do not appear in channel('a), it follows that for *any* types a, r, s the compiler knows that t(a, r, s) == channel(a). The permissions are therefore irrelevant *inside* the Channel module.
 
+```re
     /* Channel.re part 2 of 7 */
 
     type can_receive
@@ -206,20 +214,24 @@ In the next fragment, we define the types. Note that the send-receive capabiliti
 
     /* type t('a) = channel('a)  */ /* Original definition. */
     type t('a, 'r, 's) = channel('a)  /* Phantom type definition. */
+```
 
 From now on we don’t need any type annotations, and in fact the code is the same as the one we would have written for the simple channel interface without permissions. First, we define create that returns a fresh channel, i.e., a record. OCaml will find the definition channel('a) and infer that it can assign it to the returned value. As a result, inside the module create has type unit => channel('a). However, outside of the module it has the return type declared in the interface, i.e., it is assigned the type unit => Channel.t('a, can_receive, can_send).
 
+```re
     /* Channel.re part 3 of 7 */
 
     let create = () => {
         inputs: Queue.create(),
         messages: Queue.create()
     }
+```
 
 We now implement the communications. Here I’m adapting what is known as [Turner’s Abstract Machine](http://www.lfcs.inf.ed.ac.uk/reports/96/ECS-LFCS-96-345/). It’s a way to implement the [pi-calculus](https://en.wikipedia.org/wiki/%CE%A0-calculus), which can be understood as the lambda-calculus of concurrency. But let’s leave theory for another day. One detail worth mentioning is the rec part: to define mutually recursive functions, we write let rec f1 = ... and f2 = ... and fn = ... to help the type checker.
 
 The main idea of send is as follows: if there is some input waiting to receive on the same channel, perform the communication; else, put the message in the channel queue *until* an input appears to take it.
 
+```re
     /* Channel.re part 4 of 7 */
 
     let rec
@@ -234,9 +246,11 @@ The main idea of send is as follows: if there is some input waiting to receive o
         channel
     }
     and
+```
 
 Next, we implement recv' which is the basis for both recv and listen. It works dually to send: if there is a message, take it; else put the callback in the inputs queue so that eventually it can match some output.
 
+```re
     /* Channel.re part 5 of 7 */
 
     recv' = (channel, receiver, is_replicated) => {
@@ -251,6 +265,7 @@ Next, we implement recv' which is the basis for both recv and listen. It works d
         channel
     }
     and
+```
 
 When a communication can take place, which means we have both a message and a receiver callback on a channel, communicate is called. We are relying on spawn (i.e., process.nextTick) to delay the execution, as is usual in control flow for concurrency primitives; Promises also do something along these lines. There is, of course, a more fundamental reason: if we run the callback with the message immediately, we can *starve* the event loop.
 
@@ -258,6 +273,7 @@ In the case of listen, the value of is_replicated will be true, so we will also 
 
 As for run_safe, it catches any exceptions thrown in the callback for a message and prints them; normally we could put better mechanics here, but it's not important for now. See the [docs](https://reasonml.github.io/docs/en/exception) for details on exception handling.
 
+```re
     /* Channel.re part 6 of 7 */
 
     communicate = (channel, message, receiver, is_replicated) => {
@@ -281,19 +297,23 @@ As for run_safe, it catches any exceptions thrown in the callback for a message 
         let {messages} = channel
         Queue.length(messages) > 0 ? Some(Queue.take(messages)) : None
     }
+```
 
 Finally, we implement the conversions to restrict capabilities. It’s as simple as it gets, even if at first sight it makes no sense. How is it possible that the identity function has different argument and return types? The trick is that permissioned types are *identified* with the permission-less type channel inside the module, and are therefore considered equal. For example, the compiler needs to prove that to_read_only can be assigned the type t('a, can_receive, 's) => t('a, can_receive, cannot_send), which inside the module is equivalent to proving that it has the type channel('a) => channel('a).
 
+```re
     /* Channel.re part 7 of 7 */
 
     let to_read_only = channel => channel
 
     let to_write_only = channel => channel
+```
 
 Ready to run some examples? Create a file Example.re, open the channel module, and go for it! The workflow consists in running npm run build then node src/Example.bs.js to run the JS code generated from your Example.re module. It's also a good idea to study the generated *.bs.js files, they are very readable.
 
 Here’s something to get you started:
 
+```re
     /* Example2.re */
 
     open Channel
@@ -324,11 +344,13 @@ Here’s something to get you started:
        1
        2
     */
+```
 
 To run the above, first do npm run build and then node src/Example2.bs.js.
 
 Now try the same with Example1.re and the compiler will immediately inform you that you have a bug! The output should be something along these lines:
 
+```re
     9 │ chan_ro |. send(5)  /* Rejected by the compiler. */
 
     This has type:
@@ -344,6 +366,7 @@ Now try the same with Example1.re and the compiler will immediately inform you t
     Channels.Channel.cannot_send
     vs
     Channels.Channel.can_send
+```
 
 Pretty self-explanatory, right?
 
