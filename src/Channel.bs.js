@@ -15,26 +15,25 @@ function create(param) {
 }
 
 function communicate(channel, message, receiver, is_replicated) {
-  process.nextTick((function (param) {
-          try {
-            return Curry._1(receiver, message);
+  process.nextTick(function (param) {
+        try {
+          return Curry._1(receiver, message);
+        }
+        catch (raw_e){
+          var e = Caml_js_exceptions.internalToOCamlException(raw_e);
+          if (e.RE_EXN_ID === Js_exn.$$Error) {
+            console.log("JS Error: " + e._1);
+          } else {
+            console.log("Error: " + e);
           }
-          catch (raw_e){
-            var e = Caml_js_exceptions.internalToOCamlException(raw_e);
-            if (e[0] === Js_exn.$$Error) {
-              console.log("JS Error: " + (String(e[1]) + ""));
-              return ;
-            } else {
-              console.log("Error: " + (String(e) + ""));
-              return ;
-            }
-          }
-        }));
+          return ;
+        }
+      });
   if (is_replicated) {
-    process.nextTick((function (param) {
-            recv$prime(channel, receiver, is_replicated);
-            
-          }));
+    process.nextTick(function (param) {
+          recv$prime(channel, receiver, is_replicated);
+          
+        });
     return ;
   }
   
@@ -46,7 +45,7 @@ function recv$prime(channel, receiver, is_replicated) {
     var msg = Queue.take(messages);
     communicate(channel, msg, receiver, is_replicated);
   } else {
-    var input = /* tuple */[
+    var input = [
       is_replicated,
       receiver
     ];
