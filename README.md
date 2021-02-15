@@ -30,7 +30,7 @@ Now go to your chosen project directory and type bsb -init channels -theme basic
 
 The purpose of this article is to demonstrate a powerful facet of the OCaml type system: the ability to encode and enforce certain *capabilities* as types. The compiler then ensures that these capabilities are respected everywhere in our program. In other words, we get capabilities for free, without any runtime cost.
 
-The technique we will use is based on [phantom types](https://wiki.haskell.org/Phantom_type), used frequently to encode static access control; see this [post](https://blog.janestreet.com/howto-static-access-control-using-phantom-types/) for a good introduction. For an in-depth understanding of static capabilities, see the article [Lightweight Static Capabilities](http://okmij.org/ftp/papers/lightweight-static-capabilities.pdf). Note that this technique can be applied in most languages with parametric polymorphism; see for example [Phantom Types in Scala](https://blog.codecentric.de/en/2016/02/phantom-types-scala/).
+The technique we will use is based on [phantom types](https://wiki.haskell.org/Phantom_type), used frequently to encode static access control; see this [post](https://blog.janestreet.com/howto-static-access-control-using-phantom-types/) for a good introduction. See also https://github.com/idkjs/static-access-control. For an in-depth understanding of static capabilities, see the article [Lightweight Static Capabilities](http://okmij.org/ftp/Computation/lightweight-guarantees/lightweight-static-capabilities.pdf). Note that this technique can be applied in most languages with parametric polymorphism; see for example [Phantom Types in Scala](https://blog.codecentric.de/en/2016/02/phantom-types-scala/).
 
 To illustrate the concepts, we are going to break things down in three stages:
 
@@ -380,3 +380,6 @@ In a future article, we will present a complete set of utilities for reactive/st
 *Written by Dimitris Mostrous | Tech Lead at Cleverti*
 
 *Originally published at [www.cleverti.com](https://www.cleverti.com/news/reasonable-channels-in-functional-style).*
+
+
+https://blog.janestreet.com/howto-static-access-control-using-phantom-types/
